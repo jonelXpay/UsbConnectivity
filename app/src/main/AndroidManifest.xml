@@ -25,8 +25,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-        </activity>
 
+        </activity>
+        <receiver android:name=".usbconnection.UsbDevicesReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+                <action android:name="android.hardware.usb.action.USB_DEVICE_DETACHED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
