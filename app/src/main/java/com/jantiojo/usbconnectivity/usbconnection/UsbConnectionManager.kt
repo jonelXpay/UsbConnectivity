@@ -164,5 +164,7 @@ class UsbConnectionManager(private val context: Context) {
     companion object {
         private val TAG = UsbConnectionManager::class.java.simpleName
         private const val ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION"
+        private const val VENDOR_ID = 0x05ac
+        private const val PRODUCT_ID = 0x8104
     }
 }
