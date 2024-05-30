@@ -1,6 +1,7 @@
 package com.jantiojo.usbconnectivity
 
 import android.os.Bundle
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
@@ -47,7 +48,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onDataReceived(data: String) {
-
+                Log.d("setUsbCommunicationListener", "onDataReceived == $data")
             }
 
             override fun onError(message: String) {

@@ -11,9 +11,7 @@ import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
-import android.os.Build
 import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,7 +27,26 @@ class UsbConnectionManager(private val context: Context) {
     private val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
     private var listener: UsbCommunicationListener? = null
     private var payload: String? = null
-    private lateinit var usbDevicesReceiver: UsbDevicesReceiver
+
+    private val usbReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            Log.d(TAG, "USB intent?.action = ${intent?.action}")
+            if (ACTION_USB_PERMISSION == intent?.action) {
+                synchronized(this) {
+                    val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                        device?.apply {
+                            Log.d(TAG, "Permission granted for device ACTION_USB_PERMISSION")
+                            setupDeviceCommunication(this)
+                        }
+                    } else {
+                        println("Permission denied for device $device")
+                        closeDeviceCommunication()
+                    }
+                }
+            }
+        }
+    }
 
     fun setUsbCommunicationListener(listener: UsbCommunicationListener) {
         this.listener = listener
@@ -42,9 +59,8 @@ class UsbConnectionManager(private val context: Context) {
 
     fun openUsbConnection() {
         if (isUsbHostSupported(context)) {
-            usbDevicesReceiver = UsbDevicesReceiver(usbListener)
             val filter = IntentFilter(ACTION_USB_PERMISSION)
-            context.registerReceiver(usbDevicesReceiver, filter)
+            context.registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
             listUsbDevices()
         } else {
             Log.d(TAG, "USB Host is not supported on this device.")
@@ -52,23 +68,9 @@ class UsbConnectionManager(private val context: Context) {
         }
     }
 
-    private val usbListener = object : UsbDevicesListener {
-        override fun usbDeviceDetached() {
-            closeDeviceCommunication()
-            Log.d(TAG, "Permission ACTION_USB_DEVICE_DETACHED")
-        }
-
-        override fun usbDeviceAttached(usbDevice: UsbDevice?) {
-            usbDevice?.let {
-                Log.d(TAG, "Permission granted for device ACTION_USB_PERMISSION")
-                setupDeviceCommunication(it)
-            }
-        }
-    }
-
     fun closeUsbConnection() {
         if (isUsbHostSupported(context)) {
-            context.unregisterReceiver(usbDevicesReceiver)
+            context.unregisterReceiver(usbReceiver)
             closeDeviceCommunication()
         }
     }
@@ -79,6 +81,7 @@ class UsbConnectionManager(private val context: Context) {
 
     private fun listUsbDevices() {
         val deviceList = usbManager.deviceList
+        Log.d(TAG, "Number of USB deviceList.values: ${deviceList.values}")
         Log.d(TAG, "Number of USB devices detected: ${deviceList.size}")
         if (deviceList.isEmpty()) {
             Log.d(TAG, "No USB devices found.")
