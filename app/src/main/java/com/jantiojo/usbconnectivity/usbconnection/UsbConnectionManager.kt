@@ -16,6 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 class UsbConnectionManager(private val context: Context) {
 
@@ -60,7 +61,7 @@ class UsbConnectionManager(private val context: Context) {
     fun openUsbConnection() {
         if (isUsbHostSupported(context)) {
             val filter = IntentFilter(ACTION_USB_PERMISSION)
-            context.registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            context.registerReceiver(usbReceiver, filter, Context.RECEIVER_EXPORTED)
             listUsbDevices()
         } else {
             Log.d(TAG, "USB Host is not supported on this device.")
@@ -87,6 +88,7 @@ class UsbConnectionManager(private val context: Context) {
             Log.d(TAG, "No USB devices found.")
             listener?.onError("No USB devices found.")
         } else {
+            listener?.usbDeviceDetected(deviceList.values.count())
             for (device in deviceList.values) {
                 Log.d(TAG, "Device: ${device.deviceName}, ID: ${device.deviceId}")
                 requestUsbPermission(device)
@@ -97,7 +99,7 @@ class UsbConnectionManager(private val context: Context) {
     private fun requestUsbPermission(device: UsbDevice) {
         val permissionIntent = PendingIntent.getBroadcast(
             context, 0, Intent(ACTION_USB_PERMISSION),
-            PendingIntent.FLAG_UPDATE_CURRENT
+            PendingIntent.FLAG_IMMUTABLE
         )
         usbManager.requestPermission(device, permissionIntent)
     }
@@ -125,18 +127,18 @@ class UsbConnectionManager(private val context: Context) {
     private fun sendAndReceiveData(usbDevice: UsbDevice) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                payload?.let {
-                    // Send data
-                    val payload = it.toByteArray()
-                    val isSendSuccess = usbCommunication.sendData(usbDevice, payload)
-                    if (isSendSuccess) {
-                        // Update UI or handle received data
-                        listener?.onDataSent()
-                    } else {
-                        listener?.onError("Failed to send data")
-                    }
-                }
+                val sendJson = JSONObject()
+                sendJson.put("message", "Hello from Android")
 
+                val payload = sendJson.toString().toByteArray()
+                // Send data
+                val isSendSuccess = usbCommunication.sendData(usbDevice, payload)
+                if (isSendSuccess) {
+                    // Update UI or handle received data
+                    listener?.onDataSent()
+                } else {
+                    listener?.onError("Failed to send data")
+                }
                 // Receive data
                 val buffer = ByteArray(64)
                 val receivedBytes = usbCommunication.receiveData(usbDevice, buffer)
@@ -163,7 +165,7 @@ class UsbConnectionManager(private val context: Context) {
 
     companion object {
         private val TAG = UsbConnectionManager::class.java.simpleName
-        private const val ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION"
+        private const val ACTION_USB_PERMISSION = "com.jantiojo.usbconnectivity.USB_PERMISSION"
         private const val VENDOR_ID = 0x05ac
         private const val PRODUCT_ID = 0x8104
     }

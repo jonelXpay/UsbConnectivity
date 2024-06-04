@@ -1,12 +1,16 @@
 package com.jantiojo.usbconnectivity
 
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.hardware.usb.UsbAccessory
+import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
+import android.hardware.usb.UsbEndpoint
+import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.net.wifi.WifiManager
 import android.os.Bundle
@@ -21,12 +25,16 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import com.jantiojo.usbconnectivity.databinding.ActivityMainBinding
+import com.jantiojo.usbconnectivity.usbconnection.UsbCommunication
+import com.jantiojo.usbconnectivity.usbconnection.UsbCommunicationListener
+import com.jantiojo.usbconnectivity.usbconnection.UsbConnectionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.BufferedWriter
@@ -46,24 +54,18 @@ class MainActivity : AppCompatActivity() {
     private val serverIP = "192.168.1.5" // Replace with your PC's IP address
     private val serverPort = 46696
 
+    private var usbDevice: UsbDevice? = null
+    private lateinit var usbInterface: UsbInterface
+    private lateinit var endpointIn: UsbEndpoint
+    private lateinit var endpointOut: UsbEndpoint
+    private lateinit var usbCommunication: UsbCommunication
 
     private lateinit var usbManager: UsbManager
     private var usbAccessory: UsbAccessory? = null
     private var usbConnection: UsbDeviceConnection? = null
     private var job: Job? = null
 
-    private val usbReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            Log.d(TAG, "USB BroadcastReceiver == ${intent.action}")
-            if (intent.action == UsbManager.ACTION_USB_ACCESSORY_ATTACHED) {
-                usbAccessory = intent.getParcelableExtra(UsbManager.EXTRA_ACCESSORY)
-                if (usbAccessory != null) {
-                    setupDeviceCommunication(usbAccessory!!)
-                }
-            }
-        }
-    }
-
+    private lateinit var usbConnectionManager: UsbConnectionManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,41 +88,27 @@ class MainActivity : AppCompatActivity() {
                 sendDataToPC()
             }
         }
-        usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
-        val filter = IntentFilter().apply {
-            addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
-            addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED)
-        }
-        registerReceiver(usbReceiver, filter, RECEIVER_EXPORTED)
+        usbConnectionManager = UsbConnectionManager(this)
+        usbConnectionManager.openUsbConnection()
+        usbConnectionManager.setPayload("Hello World")
+        usbConnectionManager.setUsbCommunicationListener(object : UsbCommunicationListener {
+            override fun usbDeviceDetected(count: Int) {
 
-        usbManager = getSystemService(USB_SERVICE) as UsbManager
-        val accessoryList = usbManager.accessoryList
-
-        val deviceList = usbManager.deviceList
-        Log.d(TAG, "USB Device List == $deviceList")
-
-
-        if (accessoryList != null && accessoryList.isNotEmpty()) {
-            val accessory = accessoryList[0] // Get the first connected accessory
-            logAccessoryDetails(accessory)
-            runOnUiThread {
-                Toast.makeText(
-                    this,
-                    "USB accessories connected: ${accessoryList.count()}",
-                    Toast.LENGTH_LONG
-                ).show()
             }
-        } else {
-            Log.d(TAG, "No USB accessories connected")
-            runOnUiThread {
-                Toast.makeText(this, "No USB accessories connected", Toast.LENGTH_LONG).show()
-            }
-        }
 
-        val packageManager: PackageManager = packageManager
-        val hasFeature: Boolean =
-            packageManager.hasSystemFeature(PackageManager.FEATURE_USB_ACCESSORY)
-        Log.d(TAG, "Is Device supports USB accessory mode ==  $hasFeature")
+            override fun onDataSent() {
+
+            }
+
+            override fun onDataReceived(data: String) {
+                Log.d("setUsbCommunicationListener", "onDataReceived == $data")
+            }
+
+            override fun onError(message: String) {
+
+            }
+        })
+
 
     }
 
@@ -173,6 +161,53 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupDevice(device: UsbDevice) {
+        usbInterface = device.getInterface(0)
+        endpointIn = usbInterface.getEndpoint(0)
+        endpointOut = usbInterface.getEndpoint(1)
+
+        usbConnection = usbManager.openDevice(device)
+        usbConnection?.claimInterface(usbInterface, true)
+
+        usbCommunication = UsbCommunication(usbManager)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Send data
+                val sendJson = JSONObject()
+                sendJson.put("message", "Hello from Android")
+
+                val payload = sendJson.toString().toByteArray()
+                val isSendSuccess = usbCommunication.sendData(device, payload)
+//                if (isSendSuccess) {
+//                    // Update UI or handle received data
+//                    Log.d(TAG, "Is Device supports USB accessory mode ==  $hasFeature")
+//                } else {
+//                    Log.d(TAG, "Is Device supports USB accessory mode ==  $hasFeature")
+//                }
+                Log.d(TAG, "isSendSuccess ==  $isSendSuccess")
+
+                // Receive data
+                val buffer = ByteArray(64)
+                val receivedBytes = usbCommunication.receiveData(device, buffer)
+                if (receivedBytes > 0) {
+                    val receivedString = String(buffer, 0, receivedBytes)
+                    withContext(Dispatchers.Main) {
+                        Log.d(TAG, "Received: $receivedString")
+                        // Update UI or handle received data
+                    }
+                } else {
+                    Log.d(TAG, "Received Error:")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Log.d(TAG, "Error: ${e.message}")
+                    // Handle error
+                }
+            }
+        }
+    }
 
     private fun setupDeviceCommunication(accessory: UsbAccessory) {
         val fileDescriptor = usbManager.openAccessory(accessory)?.fileDescriptor ?: return
@@ -216,9 +251,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
     override fun onDestroy() {
-        unregisterReceiver(usbReceiver)
-        usbConnection?.close()
-        job?.cancel()
+
         super.onDestroy()
     }
 
@@ -246,5 +279,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
+        private const val USB_PERMISSION = "com.jantiojo.usbconnectivity.USB_PERMISSION"
+
     }
 }
