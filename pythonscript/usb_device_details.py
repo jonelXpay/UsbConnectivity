@@ -1,8 +1,8 @@
 import usb.core
 import usb.util
 
-VENDOR_ID = 0x04e8
-PRODUCT_ID = 0x6860
+VENDOR_ID = 0x05ac
+PRODUCT_ID = 0x024f
 
 def find_device():
     dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)

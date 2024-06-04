@@ -3,8 +3,8 @@ import usb.util
 import json
 import time
 
-VENDOR_ID = 0x04e8
-PRODUCT_ID = 0x6860
+VENDOR_ID = 0x05c6
+PRODUCT_ID = 0x9022
 
 def find_device():
     dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)

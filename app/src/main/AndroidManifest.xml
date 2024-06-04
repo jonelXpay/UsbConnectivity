@@ -3,13 +3,14 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!--    USB Permissions-->
-    <uses-feature android:name="android.hardware.usb.host" />
-    <uses-permission android:name="android.permission.USB_PERMISSION" />
+<!--    <uses-permission android:name="android.permission.MANAGE_USB" />-->
+    <uses-feature
+        android:name="android.hardware.usb.accessory"
+        android:required="true" />
 
-    <!--    Bluetooth Permissions-->
-    <uses-permission android:name="android.permission.BLUETOOTH"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.USB_PERMISSION" />
+<!--    <uses-permission android:name="android.permission.ACCESS_USB" />-->
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -20,23 +21,29 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.UsbConnectivity"
         tools:targetApi="31">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.UsbConnectivity">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN" />
+
             </intent-filter>
+
+            <!-- Intent filter for USB accessory attachment -->
             <intent-filter>
-                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" />
             </intent-filter>
 
-            <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
-                android:resource="@xml/device_filter" />
+            <!-- USB accessory permission -->
+            <meta-data
+                android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
+                android:resource="@xml/accessory_filter" />
         </activity>
-
     </application>
 
 </manifest>
