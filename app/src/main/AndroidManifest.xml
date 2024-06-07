@@ -3,13 +3,19 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!--    USB Permissions-->
-<!--    <uses-permission android:name="android.permission.MANAGE_USB" />-->
+    <!--    <uses-permission android:name="android.permission.MANAGE_USB" />-->
+    <!--    <uses-feature-->
+    <!--        android:name="android.hardware.usb.accessory"-->
+    <!--        android:required="true" />-->
+
+
     <uses-feature
-        android:name="android.hardware.usb.accessory"
+        android:name="android.hardware.usb.host"
         android:required="true" />
 
     <uses-permission android:name="android.permission.USB_PERMISSION" />
-<!--    <uses-permission android:name="android.permission.ACCESS_USB" />-->
+
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -33,16 +39,13 @@
 
             </intent-filter>
 
-            <!-- Intent filter for USB accessory attachment -->
             <intent-filter>
-                <category android:name="android.intent.category.DEFAULT" />
-                <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" />
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
             </intent-filter>
 
-            <!-- USB accessory permission -->
             <meta-data
-                android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
-                android:resource="@xml/accessory_filter" />
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/device_filter" />
         </activity>
     </application>
 
