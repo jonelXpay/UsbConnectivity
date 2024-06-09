@@ -10,6 +10,8 @@ import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import com.google.android.material.snackbar.Snackbar
 import com.jantiojo.usbconnectivity.databinding.ActivityMainBinding
+import org.conscrypt.Conscrypt
+import java.security.Security
 
 class MainActivity : AppCompatActivity() {
 
@@ -21,6 +23,8 @@ class MainActivity : AppCompatActivity() {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        Security.insertProviderAt(Conscrypt.newProvider(), 1)
 
         setSupportActionBar(binding.toolbar)
 

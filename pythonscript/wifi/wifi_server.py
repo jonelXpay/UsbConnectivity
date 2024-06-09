@@ -15,7 +15,7 @@ def start_server():
         print(f'Received data: {data}')
 
         # Assuming the data is JSON
-        json_data = json.loads(data)
+        json_data = json.loads(data.decode('utf-8'))
         print(f'Parsed JSON: {json_data}')
 
         # Send a response

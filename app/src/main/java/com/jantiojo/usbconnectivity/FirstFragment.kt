@@ -5,10 +5,14 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.jantiojo.usbconnectivity.databinding.FragmentFirstBinding
 import com.jantiojo.usbconnectivity.wifi.WifiConnectionListener
 import com.jantiojo.usbconnectivity.wifi.WifiConnectionManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 /**
  * A simple [Fragment] subclass as the default destination in the navigation.
@@ -36,7 +40,7 @@ class FirstFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        wifiConnectionManager = WifiConnectionManager("192.168.1.9",8080)
+        wifiConnectionManager = WifiConnectionManager("192.168.1.8",39446)
         wifiConnectionManager.setConnectionListener(object : WifiConnectionListener {
             override fun onResponseReceived(response: String) {
                 binding.textviewFirst.text = response
@@ -47,6 +51,17 @@ class FirstFragment : Fragment() {
             }
         })
 
+        binding.buttonSendData.setOnClickListener {
+            // Example JSON data
+            val jsonData = JSONObject().apply {
+                put("name", "John Doe")
+                put("age", 30)
+            }
+
+            lifecycleScope.launch(Dispatchers.IO) {
+                wifiConnectionManager.sendEncryptedDataToServer(jsonData.toString(),requireContext())
+            }
+        }
         binding.buttonFirst.setOnClickListener {
             findNavController().navigate(R.id.action_FirstFragment_to_SecondFragment)
         }
