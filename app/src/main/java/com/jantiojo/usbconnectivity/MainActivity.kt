@@ -1,6 +1,8 @@
 package com.jantiojo.usbconnectivity
 
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
@@ -37,6 +39,15 @@ class MainActivity : AppCompatActivity() {
                 .setAction("Action", null)
                 .setAnchorView(R.id.fab).show()
         }
+
+        // Check to see if the Bluetooth classic feature is available.
+        val bluetoothAvailable = packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
+
+        // Check to see if the BLE feature is available.
+        val bluetoothLEAvailable = packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)
+
+        Log.d(TAG,"bluetoothAvailable == $bluetoothAvailable")
+        Log.d(TAG,"bluetoothLEAvailable == $bluetoothLEAvailable")
 
     }
 
