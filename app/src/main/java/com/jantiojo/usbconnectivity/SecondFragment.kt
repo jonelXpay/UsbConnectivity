@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.jantiojo.usbconnectivity.bluetooth.BluetoothDataReceiverManager
 import com.jantiojo.usbconnectivity.bluetooth.BluetoothDataSenderListener
 import com.jantiojo.usbconnectivity.bluetooth.BluetoothDataSenderManager
 import com.jantiojo.usbconnectivity.databinding.FragmentSecondBinding
@@ -24,7 +25,8 @@ class SecondFragment : Fragment() {
     // onDestroyView.
     private val binding get() = _binding!!
 
-    private lateinit var bluetoothServerManager: BluetoothDataSenderManager
+    private lateinit var bluetoothDataSenderManager: BluetoothDataSenderManager
+    private lateinit var bluetoothDataReceiverManager: BluetoothDataReceiverManager
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -40,7 +42,7 @@ class SecondFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
 
-        bluetoothServerManager = BluetoothDataSenderManager(requireContext(), object :
+        bluetoothDataSenderManager = BluetoothDataSenderManager(requireContext(), object :
             BluetoothDataSenderListener {
             override fun onDataSent(deviceAddress: String) {
                 Log.i(TAG, "Notification sent successfully to device: $deviceAddress")
@@ -62,10 +64,10 @@ class SecondFragment : Fragment() {
                 Log.i(TAG, "onError : $message")
             }
         })
-        if (bluetoothServerManager.initialize()) {
+        if (bluetoothDataSenderManager.initialize()) {
             val serviceUUID = UUID.fromString("12345678-1234-5678-1234-56789abcdef0")
             val charUUID = UUID.fromString("87654321-4321-6789-4321-0fedcba98765")
-            bluetoothServerManager.startServer(serviceUUID, charUUID)
+            bluetoothDataSenderManager.startServer(serviceUUID, charUUID)
         }
 
         binding.buttonSecond.setOnClickListener {
@@ -78,8 +80,18 @@ class SecondFragment : Fragment() {
                 put("name", "John Doe")
                 put("age", 30)
             }
-            bluetoothServerManager.sendJsonData(jsonData.toString())
+            bluetoothDataSenderManager.sendJsonData(jsonData.toString())
         }
+
+        bluetoothDataReceiverManager = BluetoothDataReceiverManager(requireContext(), object :
+            BluetoothDataReceiverManager.BLEClientListener {
+            override fun onDataReceived(data: String) {
+                requireActivity().runOnUiThread {
+                    binding.textviewSecond.text = data
+                }
+            }
+        })
+        bluetoothDataReceiverManager.startScan()
     }
 
     override fun onDestroyView() {

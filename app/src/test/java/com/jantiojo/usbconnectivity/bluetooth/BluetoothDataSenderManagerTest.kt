@@ -97,8 +97,7 @@ class BluetoothDataSenderManagerTest {
         val jsonString = "{\"message\": \"Hello, world!\"}"
 
         // Arrange
-        every { bluetoothManager.openGattServer(context, any()) } returns gattServer
-
+        every { gattServer.notifyCharacteristicChanged(any(), any(), any()) } returns true
         every { connectedDevice.address } returns "address"
         every { connectedDevice.name } returns "address"
         // Act
