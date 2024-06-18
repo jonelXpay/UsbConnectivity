@@ -1,8 +1,10 @@
 package com.jantiojo.usbconnectivity.bluetooth
 
 
-interface BluetoothDataSenderListener {
+interface BluetoothConnectionListener {
     fun onDataSent(deviceAddress: String)
+
+    fun onDataReceived(data: String)
 
     fun onStartSuccess()
 

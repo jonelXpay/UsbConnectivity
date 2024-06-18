@@ -1,5 +1,7 @@
 package com.jantiojo.usbconnectivity
 
+import android.bluetooth.BluetoothManager
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -7,9 +9,8 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
-import com.jantiojo.usbconnectivity.bluetooth.BluetoothDataReceiverManager
-import com.jantiojo.usbconnectivity.bluetooth.BluetoothDataSenderListener
-import com.jantiojo.usbconnectivity.bluetooth.BluetoothDataSenderManager
+import com.jantiojo.usbconnectivity.bluetooth.BluetoothConnectionListener
+import com.jantiojo.usbconnectivity.bluetooth.BluetoothConnectionManager
 import com.jantiojo.usbconnectivity.databinding.FragmentSecondBinding
 import org.json.JSONObject
 import java.util.UUID
@@ -25,8 +26,7 @@ class SecondFragment : Fragment() {
     // onDestroyView.
     private val binding get() = _binding!!
 
-    private lateinit var bluetoothDataSenderManager: BluetoothDataSenderManager
-    private lateinit var bluetoothDataReceiverManager: BluetoothDataReceiverManager
+    private lateinit var bluetoothDataSenderManager: BluetoothConnectionManager
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -40,34 +40,47 @@ class SecondFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        val serviceUUID = UUID.fromString("12345678-1234-5678-1234-56789abcdef0")
+        val writeCharacteristicUUID = UUID.fromString("87654321-4321-6789-4321-0fedcba98788")
+        val readCharacteristicUUID = UUID.fromString("00002902-0000-1000-8000-00805f9b3444")
 
+        bluetoothDataSenderManager = BluetoothConnectionManager(
+            requireContext(),
+            bluetoothManager = requireContext().getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager,
+            serviceUUID = serviceUUID,
+            writeCharacteristicUUID = writeCharacteristicUUID,
+            readCharacteristicUUID = readCharacteristicUUID,
+            object : BluetoothConnectionListener {
+                override fun onDataSent(deviceAddress: String) {
+                    Log.i(TAG, "Notification sent successfully to device: $deviceAddress")
+                }
 
-        bluetoothDataSenderManager = BluetoothDataSenderManager(requireContext(), object :
-            BluetoothDataSenderListener {
-            override fun onDataSent(deviceAddress: String) {
-                Log.i(TAG, "Notification sent successfully to device: $deviceAddress")
-            }
+                override fun onDataReceived(data: String) {
+                    requireActivity().runOnUiThread {
+                        binding.textviewSecond.text = data
+                    }
+                }
 
-            override fun onStartSuccess() {
-                Log.i(TAG, "onStartSuccess")
-            }
+                override fun onStartSuccess() {
+                    Log.i(TAG, "onStartSuccess")
+                }
 
-            override fun onDeviceConnected(address: String) {
-                Log.i(TAG, "onDeviceConnected in $address")
-            }
+                override fun onDeviceConnected(address: String) {
+                    Log.i(TAG, "onDeviceConnected in $address")
+                }
 
-            override fun onDeviceDisconnected(address: String) {
-                Log.i(TAG, "onDeviceDisconnected in $address")
-            }
+                override fun onDeviceDisconnected(address: String) {
+                    Log.i(TAG, "onDeviceDisconnected in $address")
+                }
 
-            override fun onError(message: String) {
-                Log.i(TAG, "onError : $message")
-            }
-        })
+                override fun onError(message: String) {
+                    Log.i(TAG, "onError : $message")
+                }
+            })
+
         if (bluetoothDataSenderManager.initialize()) {
-            val serviceUUID = UUID.fromString("12345678-1234-5678-1234-56789abcdef0")
-            val charUUID = UUID.fromString("87654321-4321-6789-4321-0fedcba98765")
-            bluetoothDataSenderManager.startServer(serviceUUID, charUUID)
+
+            bluetoothDataSenderManager.startServer()
         }
 
         binding.buttonSecond.setOnClickListener {
@@ -83,15 +96,6 @@ class SecondFragment : Fragment() {
             bluetoothDataSenderManager.sendJsonData(jsonData.toString())
         }
 
-        bluetoothDataReceiverManager = BluetoothDataReceiverManager(requireContext(), object :
-            BluetoothDataReceiverManager.BLEClientListener {
-            override fun onDataReceived(data: String) {
-                requireActivity().runOnUiThread {
-                    binding.textviewSecond.text = data
-                }
-            }
-        })
-        bluetoothDataReceiverManager.startScan()
     }
 
     override fun onDestroyView() {

@@ -4,7 +4,6 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
-import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattServer
 import android.bluetooth.BluetoothGattServerCallback
 import android.bluetooth.BluetoothGattService
@@ -16,22 +15,24 @@ import android.bluetooth.le.AdvertiseSettings
 import android.content.Context
 import java.util.UUID
 
-class BluetoothDataSenderManager(
+class BluetoothConnectionManager(
     private val context: Context,
-    private val listener: BluetoothDataSenderListener? = null
+    private val bluetoothManager: BluetoothManager,
+    private val serviceUUID: UUID,
+    private val writeCharacteristicUUID: UUID,
+    private val readCharacteristicUUID: UUID,
+    private val listener: BluetoothConnectionListener? = null
 ) {
 
-    private var bluetoothManager: BluetoothManager? = null
-    private var bluetoothAdapter: BluetoothAdapter? = null
-    private var gattServer: BluetoothGattServer? = null
-    private var jsonCharacteristic: BluetoothGattCharacteristic? = null
-    private var connectedDevice: BluetoothDevice? = null
+    private val bluetoothAdapter: BluetoothAdapter? by lazy { bluetoothManager.adapter }
+    var gattServer: BluetoothGattServer? = null
+    lateinit var jsonCharacteristic: BluetoothGattCharacteristic
+    var connectedDevice: BluetoothDevice? = null
 
     fun initialize(): Boolean {
-        bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-        bluetoothAdapter = bluetoothManager?.adapter
+        val adapter = bluetoothAdapter ?: return false
 
-        if (bluetoothAdapter == null || !bluetoothAdapter!!.isEnabled) {
+        if (!adapter.isEnabled) {
             listener?.onError("Bluetooth is not enabled or not available")
             return false
         }
@@ -39,45 +40,55 @@ class BluetoothDataSenderManager(
         return true
     }
 
-    fun startServer(serviceUUID: UUID, charUUID: UUID) {
-        gattServer = bluetoothManager?.openGattServer(context, gattServerCallback)
-
-        if (gattServer == null) {
+    fun startServer() {
+        gattServer = bluetoothManager.openGattServer(context, gattServerCallback)
+        if (gattServer == null){
             listener?.onError("Unable to create GATT server")
             return
         }
-
-        val service = BluetoothGattService(serviceUUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
-        jsonCharacteristic = BluetoothGattCharacteristic(
-            charUUID,
-            BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_NOTIFY,
-            BluetoothGattCharacteristic.PERMISSION_READ or BluetoothGattCharacteristic.PERMISSION_WRITE
+        val service =
+            BluetoothGattService(serviceUUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
+        val writeCharacteristic = BluetoothGattCharacteristic(
+            writeCharacteristicUUID,
+            BluetoothGattCharacteristic.PROPERTY_WRITE,
+            BluetoothGattCharacteristic.PERMISSION_WRITE
         )
 
-        val descriptor = BluetoothGattDescriptor(
-            UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"),
-            BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE
+        val readCharacteristic = BluetoothGattCharacteristic(
+            readCharacteristicUUID,
+            BluetoothGattCharacteristic.PROPERTY_READ,
+            BluetoothGattCharacteristic.PERMISSION_READ
         )
-        descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-        jsonCharacteristic?.addDescriptor(descriptor)
 
+        jsonCharacteristic = readCharacteristic
+        service.addCharacteristic(writeCharacteristic)
         service.addCharacteristic(jsonCharacteristic)
-        gattServer?.addService(service)
 
-        val settings = AdvertiseSettings.Builder()
+        gattServer?.addService(service)
+        bluetoothAdapter?.bluetoothLeAdvertiser?.startAdvertising(
+            advertisingSettings(),
+            advertiseData(),
+            advertiseCallback
+        )
+    }
+
+
+    private fun advertisingSettings(): AdvertiseSettings {
+        return AdvertiseSettings.Builder()
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
             .setConnectable(true)
             .build()
-
-        val data = AdvertiseData.Builder()
-            .setIncludeDeviceName(true)
-            .build()
-
-        bluetoothAdapter?.bluetoothLeAdvertiser?.startAdvertising(settings, data, advertiseCallback)
     }
 
-    private val gattServerCallback = object : BluetoothGattServerCallback() {
+    private fun advertiseData(): AdvertiseData {
+        return AdvertiseData.Builder()
+            .setIncludeDeviceName(true)
+            .build()
+    }
+
+
+    val gattServerCallback = object : BluetoothGattServerCallback() {
         override fun onConnectionStateChange(device: BluetoothDevice?, status: Int, newState: Int) {
             super.onConnectionStateChange(device, status, newState)
             if (device == null) {
@@ -106,7 +117,7 @@ class BluetoothDataSenderManager(
                 return
             }
 
-            if (characteristic == jsonCharacteristic) {
+            if (characteristic.uuid == readCharacteristicUUID) {
                 gattServer?.sendResponse(
                     device,
                     requestId,
@@ -140,8 +151,10 @@ class BluetoothDataSenderManager(
                 return
             }
 
-            if (characteristic == jsonCharacteristic) {
+            if (characteristic.uuid == writeCharacteristicUUID) {
                 characteristic.value = value
+                val data = value.toString(Charsets.UTF_8)
+                listener?.onDataReceived(data)
                 if (responseNeeded) {
                     gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
                 }
@@ -177,12 +190,23 @@ class BluetoothDataSenderManager(
     }
 
     fun sendJsonData(jsonString: String) {
-        jsonCharacteristic?.value = jsonString.toByteArray(Charsets.UTF_8)
-        connectedDevice?.let { device ->
-            gattServer?.notifyCharacteristicChanged(device, jsonCharacteristic, false)
-        } ?: run {
-            listener?.onError("No connected device to send notification")
+        when {
+            connectedDevice == null && gattServer == null -> {
+                listener?.onError("No connected device to send notification")
+            }
+
+            jsonString.isEmpty() -> listener?.onError("JSON Data is invalid")
+
+            else -> {
+                jsonCharacteristic.value = jsonString.toByteArray(Charsets.UTF_8)
+                gattServer?.notifyCharacteristicChanged(
+                    connectedDevice!!,
+                    jsonCharacteristic,
+                    false
+                )
+            }
         }
+
     }
 
 }
