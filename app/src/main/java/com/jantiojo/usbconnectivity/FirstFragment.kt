@@ -40,7 +40,7 @@ class FirstFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        wifiConnectionManager = WifiConnectionManager("192.168.1.8",39446)
+        wifiConnectionManager = WifiConnectionManager("192.168.1.8",44896)
         wifiConnectionManager.setConnectionListener(object : WifiConnectionListener {
             override fun onResponseReceived(response: String) {
                 binding.textviewFirst.text = response

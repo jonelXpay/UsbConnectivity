@@ -15,19 +15,24 @@ object EncryptionUtil {
     private val secretKey: SecretKey = generateKey()
     private val ivParameterSpec: IvParameterSpec = generateIv()
 
-    private fun generateKey(): SecretKey {
+
+    fun generateKey(): SecretKey {
         val keyGenerator = KeyGenerator.getInstance(ALGORITHM)
         keyGenerator.init(KEY_SIZE)
         return keyGenerator.generateKey()
     }
 
-    private fun generateIv(): IvParameterSpec {
+    fun generateIv(): IvParameterSpec {
         val iv = ByteArray(16)
         java.security.SecureRandom().nextBytes(iv)
         return IvParameterSpec(iv)
     }
 
     fun encrypt(data: String): String {
+        val base64Key = Base64.encodeToString(secretKey.encoded, Base64.DEFAULT)
+        val base64Iv = Base64.encodeToString(ivParameterSpec.iv, Base64.DEFAULT)
+        println("Key: $base64Key")
+        println("IV: $base64Iv")
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivParameterSpec)
         val encryptedBytes = cipher.doFinal(data.toByteArray())
