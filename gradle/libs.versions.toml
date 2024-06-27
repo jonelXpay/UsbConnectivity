@@ -12,6 +12,8 @@ navigationFragmentKtx = "2.7.7"
 navigationUiKtx = "2.7.7"
 mockkVersion = "1.13.10"
 coroutineVersion = "1.8.0"
+okhttpBom = "4.12.0"
+
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -28,6 +30,11 @@ mockk-agent = { module = "io.mockk:mockk-agent", version.ref = "mockkVersion" }
 coroutine-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutineVersion" }
 coroutine-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutineVersion" }
 coroutine-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutineVersion" }
+okhttp-bom = { group = "com.squareup.okhttp3", name = "okhttp-bom", version.ref = "okhttpBom" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp" }
+okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor" }
+
+
 [bundles]
 mockkTest = ["mockk-agent", "mockk-android"]
 coroutine = ["coroutine-core","coroutine-android"]
