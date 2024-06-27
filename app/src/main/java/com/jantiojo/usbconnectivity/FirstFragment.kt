@@ -40,16 +40,18 @@ class FirstFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        wifiConnectionManager = WifiConnectionManager("192.168.1.5",8080)
-        wifiConnectionManager.setConnectionListener(object : WifiConnectionListener {
-            override fun onResponseReceived(response: String) {
-                binding.textviewFirst.text = response
-            }
+        wifiConnectionManager = WifiConnectionManager()
+        wifiConnectionManager.setConnectionListener(
+            object : WifiConnectionListener {
+                override fun onResponseReceived(response: String) {
+                    binding.textviewFirst.text = response
+                }
 
-            override fun onError(message: String) {
-                println("Failed to send/receive data: $message")
+                override fun onError(message: String) {
+                    println("Failed to send/receive data: $message")
+                }
             }
-        })
+        )
 
         binding.buttonFirst.setOnClickListener {
             findNavController().navigate(R.id.action_FirstFragment_to_SecondFragment)
@@ -58,17 +60,36 @@ class FirstFragment : Fragment() {
         binding.buttonSendData.setOnClickListener {
             // Example JSON data
             val jsonData = JSONObject().apply {
-                put("name", "John Doe")
-                put("age", 30)
+                put("status", "Approved")
+                put("transactionId", "4b546514-fb54-47a2-96f7-6a465c3b3422")
+                put("receiptNo", "6a465c3b342")
+                put("date", "8/9/2024 12:00:00")
             }
-            lifecycleScope.launch(Dispatchers.IO){
-                wifiConnectionManager.sendData(jsonData.toString())
+            lifecycleScope.launch(Dispatchers.IO) {
+                wifiConnectionManager.sendData(
+                    serverIpAddress = SERVER_IP,
+                    sendPort = SEND_PORT,
+                    data = jsonData.toString()
+                )
             }
+        }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            wifiConnectionManager.receiveData(receivePort = RECEIVE_PORT)
         }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+        wifiConnectionManager.closeSendingConnection()
+        wifiConnectionManager.closeReceivingConnection()
+    }
+
+
+    companion object {
+        private const val SERVER_IP = "192.168.1.6"  // Replace with your Python server's IP
+        private const val SEND_PORT = 5002          // Port for sending data to Python server
+        private const val RECEIVE_PORT = 5001       // Port for receiving data from Python server
     }
 }
